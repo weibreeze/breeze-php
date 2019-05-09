@@ -17,7 +17,7 @@
 
 namespace Breeze\Test;
 
-use Breeze\AbstraceMessage;
+use Breeze\AbstractMessage;
 use Breeze\BreezeReader;
 use Breeze\BreezeWriter;
 use Breeze\Buffer;
@@ -35,14 +35,14 @@ use Breeze\Types\TypeString;
  * @author: zhanglei
  *  Created at: 2019-04-30
  */
-class TestMsg extends AbstraceMessage
+class TestMsg extends AbstractMessage
 {
+    private static $schema;
+
     private $int;
     private $string;
     private $map;
     private $array;
-
-    private static $schema;
 
     public function __construct()
     {
@@ -57,18 +57,12 @@ class TestMsg extends AbstraceMessage
 
     private function initSchema()
     {
-        $schema = new Schema();
-        $schema->setName("weibo-TestMsg");
-        $schema->putField(new FieldDesc(1, 'int', TypeInt32::instance()));
-        $schema->putField(new FieldDesc(2, 'string', TypeString::instance()));
-        $schema->putField(new FieldDesc(3, 'map', new TypeMap(TypeString::instance(), new TypeMessage(new TestSubMsg()))));
-        $schema->putField(new FieldDesc(4, 'array', new TypeArray(new TypeMessage(new TestSubMsg()))));
-        self::$schema = $schema;
-    }
-
-    public function defaultInstance()
-    {
-        return new TestMsg();
+        self::$schema = new Schema();
+        self::$schema->setName('TestMsg');
+        self::$schema->putField(new FieldDesc(1, 'int', TypeInt32::instance()));
+        self::$schema->putField(new FieldDesc(2, 'string', TypeString::instance()));
+        self::$schema->putField(new FieldDesc(3, 'map', new TypeMap(TypeString::instance(), new TypeMessage(new TestSubMsg()))));
+        self::$schema->putField(new FieldDesc(4, 'array', new TypeArray(new TypeMessage(new TestSubMsg()))));
     }
 
     public function writeTo(Buffer $buf)
@@ -94,6 +88,11 @@ class TestMsg extends AbstraceMessage
                     BreezeReader::readValue($fbuf);
             }
         });
+    }
+
+    public function defaultInstance()
+    {
+        return new TestMsg();
     }
 
     public function getName()

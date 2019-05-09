@@ -18,7 +18,7 @@
 
 namespace Breeze\Test;
 
-use Breeze\AbstraceMessage;
+use Breeze\AbstractMessage;
 use Breeze\BreezeReader;
 use Breeze\BreezeWriter;
 use Breeze\Buffer;
@@ -41,7 +41,7 @@ use Breeze\Types\TypeString;
  * @author: zhanglei
  *  Created at: 2019-04-30
  */
-class TestSubMsg extends AbstraceMessage
+class TestSubMsg extends AbstractMessage
 {
     private $string;
     private $int;
@@ -77,7 +77,7 @@ class TestSubMsg extends AbstraceMessage
 
     private function initSchema()
     {
-        $schema = new Schema("weibo-TestSubMsg");
+        $schema = new Schema('TestSubMsg');
         $schema->putField(new FieldDesc(1, 'string', TypeString::instance()));
         $schema->putField(new FieldDesc(2, 'int', TypeInt32::instance()));
         $schema->putField(new FieldDesc(3, 'int64', TypeInt64::instance()));

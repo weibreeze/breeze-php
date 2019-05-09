@@ -19,11 +19,11 @@
 namespace Breeze;
 
 /**
- * AbstraceMessage contains common function of breeze message.
+ * AbstractMessage contains common function of breeze message.
  * @author: zhanglei
  *  Created at: 2019-04-30
  */
-abstract class AbstraceMessage implements Message
+abstract class AbstractMessage implements Message
 {
     /**
      * @param Buffer $buf
