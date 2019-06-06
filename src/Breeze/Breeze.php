@@ -61,7 +61,9 @@ class Breeze
             throw new BreezeException('message alias \'' . $message->getAlias() . '\' is already register in Breeze');
         }
         self::$messageInstances[$message->getName()] = $message;
-        self::$messageInstances[$message->getAlias()] = $message;
+        if (!empty($message->getAlias())) {
+            self::$messageInstances[$message->getAlias()] = $message;
+        }
     }
 
     /**

@@ -7,6 +7,7 @@ use Breeze\BreezeWriter;
 use Breeze\Buffer;
 use Breeze\FieldDesc;
 use Breeze\MessageField;
+use Breeze\Test\MyEnum;
 use Breeze\Test\TestMsg;
 use Breeze\Test\TestStruct;
 use Breeze\Test\TestSubMsg;
@@ -39,6 +40,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             new TestStruct(['ser' => 45, 'er3' => 678], new TypeMap(TypeString::instance(), TypeInt32::instance())),
             new TestStruct([1 => 'se', 2 => 'er', 4 => 'tr'], new TypeMap(TypeInt16::instance(), TypeString::instance())),
             new TestStruct($this->getTestMsg(), new TypeMessage(new TestMsg())),
+            new TestStruct(new MyEnum(MyEnum::E2), new TypeMessage(new MyEnum())),
         ];
         //with type
         foreach ($array as $v) {
@@ -59,6 +61,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
 
         // read without type
         Breeze::registerMessage(new TestMsg());// need register message if read without type
+        Breeze::registerMessage(new MyEnum());
         foreach ($array as $v) {
             $buf = new Buffer();
             BreezeWriter::writeValue($buf, $v->v, $v->t);
