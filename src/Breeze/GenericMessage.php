@@ -18,6 +18,7 @@
 
 namespace Breeze;
 
+
 /**
  * GenericMessage. breeze message will convert to GenericMessage if its schema not found.
  * GenericMessage can get or set field by magic function __get or __set, if it can found schema through SchemaSeeker.
@@ -30,11 +31,12 @@ class GenericMessage implements Message
     private $alias = '';
     private $fields = array();
     private $nameToIndex = array();
-    private $schema = null;
+    private $schema;
     private $checked = false;// is check schema.
 
     /**
      * @param string $name the name of message
+     * @throws BreezeException GenericMessage should not empty
      */
     public function __construct($name = 'GenericMessage')
     {
@@ -108,7 +110,7 @@ class GenericMessage implements Message
     {
         if (!empty($this->fields)) {
             $this->checkSchema();
-            BreezeWriter::writeMessage($buf, $this->getName(), function (Buffer $fbuf) {
+            BreezeWriter::writeMessage($buf, function (Buffer $fbuf) {
                 foreach ($this->fields as $index => $value) {
                     $type = null;
                     if (!is_null($this->schema)) {
@@ -117,7 +119,10 @@ class GenericMessage implements Message
                             $type = $f->getType();
                         }
                     }
-                    BreezeWriter::writeMessagField($fbuf, $index, $value, $type);
+                    if (is_null($type)) {
+                        $type = BreezeWriter::checkType($value);
+                    }
+                    BreezeWriter::writeMessageField($fbuf, $index, $value, $type);
                 }
             });
         }
@@ -127,14 +132,14 @@ class GenericMessage implements Message
     {
         $this->checkSchema();
         BreezeReader::readMessage($buf, function (Buffer $fbuf, $index) {
-            $type = null;
             if (!is_null($this->schema)) {
                 $f = $this->schema->getField($index);
                 if (!is_null($f)) {
-                    $type = $f->getType();
+                    $this->fields[$index] = $f->getType()->read($fbuf, true);
+                    return;
                 }
             }
-            $this->fields[$index] = BreezeReader::readValue($fbuf, $type);
+            $this->fields[$index] = BreezeReader::readValue($fbuf);
         });
     }
 
@@ -182,6 +187,6 @@ class GenericMessage implements Message
 
     public function defaultInstance()
     {
-        return new GenericMessage();
+        return new GenericMessage($this->name);// with last name for write
     }
 }

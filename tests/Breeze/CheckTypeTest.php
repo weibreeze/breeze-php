@@ -5,7 +5,6 @@ namespace Breeze;
 use Breeze\Test\TestMsg;
 use Breeze\Test\TestStruct;
 use Breeze\Test\TestSubMsg;
-use Breeze\Types\TypeArray;
 use Breeze\Types\TypeBool;
 use Breeze\Types\TypeByte;
 use Breeze\Types\TypeFloat32;
@@ -13,12 +12,13 @@ use Breeze\Types\TypeFloat64;
 use Breeze\Types\TypeInt16;
 use Breeze\Types\TypeInt32;
 use Breeze\Types\TypeInt64;
-use Breeze\Types\TypeMap;
 use Breeze\Types\TypeMessage;
+use Breeze\Types\TypePackedArray;
+use Breeze\Types\TypePackedMap;
 use Breeze\Types\TypeString;
 use PHPUnit\Framework\TestCase;
 
-class MessageFieldTest extends TestCase
+class CheckTypeTest extends TestCase
 {
     public function testCheckByte()
     {
@@ -179,19 +179,19 @@ class MessageFieldTest extends TestCase
     {
         // right values
         $array = [
-            new TestStruct([123, 35, 67, 78, 0, -2134, -34], new TypeArray(TypeInt16::instance())),
-            new TestStruct([123.34, 35.547, 67, 78, 0, -2134, -34], new TypeArray(TypeFloat32::instance())),
-            new TestStruct([['xxx' => 16, 'de' => -8], ['\n\r\t' => 0]], new TypeArray(new TypeMap(TypeString::instance(), TypeByte::instance()))),
-            new TestStruct([new TestMsg(), new TestMsg()], new TypeArray(new TypeMessage(new TestMsg()))),
+            new TestStruct([123, 35, 67, 78, 0, -2134, -34], new TypePackedArray(TypeInt16::instance())),
+            new TestStruct([123.34, 35.547, 67, 78, 0, -2134, -34], new TypePackedArray(TypeFloat32::instance())),
+            new TestStruct([['xxx' => 16, 'de' => -8], ['\n\r\t' => 0]], new TypePackedArray(new TypePackedMap(TypeString::instance(), TypeByte::instance()))),
+            new TestStruct([new TestMsg(), new TestMsg()], new TypePackedArray(new TypeMessage(new TestMsg()))),
         ];
         $this->check($array);
 
         //wrong values
         $array = [
-            new TestStruct([123, 35, 67, 234566, 0, -2134, -34], new TypeArray(TypeInt16::instance())),
-            new TestStruct([123.34, 35.547, 67, '\n', 0, -2134, -34], new TypeArray(TypeFloat32::instance())),
-            new TestStruct([['xxx' => 16, 'de' => 'uiou*('], ['\n\r\t' => 0]], new TypeArray(new TypeMap(TypeString::instance(), TypeByte::instance()))),
-            new TestStruct([new TestMsg(), 123], new TypeArray(new TypeMessage(new TestMsg()))),
+            new TestStruct([123, 35, 67, 234566, 0, -2134, -34], new TypePackedArray(TypeInt16::instance())),
+            new TestStruct([123.34, 35.547, 67, '\n', 0, -2134, -34], new TypePackedArray(TypeFloat32::instance())),
+            new TestStruct([['xxx' => 16, 'de' => 'uiou*('], ['\n\r\t' => 0]], new TypePackedArray(new TypePackedMap(TypeString::instance(), TypeByte::instance()))),
+            new TestStruct([new TestMsg(), 123], new TypePackedArray(new TypeMessage(new TestMsg()))),
 
         ];
         $this->check($array, false);
@@ -201,18 +201,19 @@ class MessageFieldTest extends TestCase
     {
         // right values
         $array = [
-            new TestStruct(['sji(*&' => 123, 'DLO@' => 35, 'OI)#' => 67, '' => 78], new TypeMap(TypeString::instance(), TypeInt16::instance())),
-            new TestStruct(['jOI&(*#)_' => [123.34, 35.547], 'jd>/KO(*#)_' => [34, 547]], new TypeMap(TypeString::instance(), new TypeArray(TypeFloat32::instance()))),
-            new TestStruct(['xxx' => new TestMsg(), 'de' => new TestMsg()], new TypeMap(TypeString::instance(), new TypeMessage(new TestMsg()))),
+            new TestStruct(['sji(*&' => 123, 'DLO@' => 35, 'OI)#' => 67, '' => 78], new TypePackedMap(TypeString::instance(), TypeInt16::instance())),
+            new TestStruct(['jOI&(*#)_' => [123.34, 35.547], 'jd>/KO(*#)_' => [34, 547]], new TypePackedMap(TypeString::instance(), new TypePackedArray(TypeFloat32::instance()))),
+            new TestStruct(['xxx' => new TestMsg(), 'de' => new TestMsg()], new TypePackedMap(TypeString::instance(), new TypeMessage(new TestMsg()))),
         ];
         $this->check($array);
 
         //wrong values
         $array = [
-            new TestStruct(['sji(*&' => 123, 'DLO@' => 'jOI*&()', 'OI)#' => 67, '' => 78], new TypeMap(TypeString::instance(), TypeInt16::instance())),
-            new TestStruct(['jOI&(*#)_' => [123.34, 35.547], 'jd>/KO(*#)_' => [34, 'KPOIU)(']], new TypeMap(TypeString::instance(), new TypeArray(TypeFloat32::instance()))),
-            new TestStruct(['xxx' => new TestMsg(), 'de' => 2134], new TypeMap(TypeString::instance(), new TypeMessage(new TestMsg()))),
+            new TestStruct(['sji(*&' => 123, 'DLO@' => 'jOI*&()', 'OI)#' => 67, '' => 78], new TypePackedMap(TypeString::instance(), TypeInt16::instance())),
+            new TestStruct(['jOI&(*#)_' => [123.34, 35.547], 'jd>/KO(*#)_' => [34, 'KPOIU)(']], new TypePackedMap(TypeString::instance(), new TypePackedArray(TypeFloat32::instance()))),
+            new TestStruct(['xxx' => new TestMsg(), 'de' => 2134], new TypePackedMap(TypeString::instance(), new TypeMessage(new TestMsg()))),
         ];
+        $this->check($array, false);
     }
 
     public function testCheckMessage()
@@ -235,7 +236,7 @@ class MessageFieldTest extends TestCase
     private function check($array, $return = true)
     {
         foreach ($array as $struct) {
-            $ret = MessageField::checkType($struct->v, $struct->t);
+            $ret = $struct->t->checkType($struct->v);
             $this->assertEquals($return, $ret, 'check type:' . (is_object($struct->v) || is_array($struct->v)) ? gettype($struct->v) : $struct->v);
         }
     }

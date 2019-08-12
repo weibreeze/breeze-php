@@ -20,8 +20,15 @@ namespace Breeze;
 
 use Breeze\Types\Type;
 use Breeze\Types\TypeArray;
+use Breeze\Types\TypeByte;
+use Breeze\Types\TypeBytes;
+use Breeze\Types\TypeFloat32;
+use Breeze\Types\TypeInt16;
+use Breeze\Types\TypeInt32;
 use Breeze\Types\TypeMap;
-use Breeze\Types\TypeUnknown;
+use Breeze\Types\TypeMessage;
+use Breeze\Types\TypePackedArray;
+use Breeze\Types\TypePackedMap;
 use Breeze\Types\TypeBool;
 use Breeze\Types\TypeFloat64;
 use Breeze\Types\TypeInt64;
@@ -36,101 +43,104 @@ class BreezeWriter
 {
     public static function writeBool(Buffer $buf, $value)
     {
-        if ($value == true) {
-            $buf->writeByte(Type::N_TRUE);
-        } else {
-            $buf->writeByte(Type::N_FALSE);
-        }
+        TypeBool::instance()->write($buf, $value);
     }
 
     public static function writeString(Buffer $buf, $value)
     {
-        $buf->writeByte(Type::N_STRING);
-        $buf->writeZigzag(strlen($value));
-        $buf->write($value);
+        TypeString::instance()->write($buf, $value);
     }
 
     public static function writeByte(Buffer $buf, $value)
     {
-        $buf->writeByte(Type::N_BYTE);
-        $buf->writeByte($value);
+        TypeByte::instance()->write($buf, $value);
     }
 
     public static function writeBytes(Buffer $buf, $value)
     {
-        $buf->writeByte(Type::N_BYTES);
-        $buf->writeInt32(strlen($value));
-        $buf->write($value);
+        TypeBytes::instance()->write($buf, $value);
     }
 
     public static function writeInt16(Buffer $buf, $value)
     {
-        $buf->writeByte(Type::N_INT16);
-        $buf->writeInt16($value);
+        TypeInt16::instance()->write($buf, $value);
     }
 
     public static function writeInt32(Buffer $buf, $value)
     {
-        $buf->writeByte(Type::N_INT32);
-        $buf->writeZigzag($value);
+        TypeInt32::instance()->write($buf, $value);
     }
 
     public static function writeInt64(Buffer $buf, $value)
     {
-        $buf->writeByte(Type::N_INT64);
-        $buf->writeZigzag($value);
+        TypeInt64::instance()->write($buf, $value);
     }
 
     public static function writeFloat32(Buffer $buf, $value)
     {
-        $buf->writeByte(Type::N_FLOAT32);
-        $buf->writeFloat32($value);
+        TypeFloat32::instance()->write($buf, $value);
     }
 
     public static function writeFloat64(Buffer $buf, $value)
     {
-        $buf->writeByte(Type::N_FLOAT64);
-        $buf->writeFloat64($value);
+        TypeFloat64::instance()->write($buf, $value);
     }
 
+    /**
+     * @param Buffer $buf
+     * @param array $value
+     * @param Type|null $type element type
+     * @throws BreezeException
+     */
     public static function writeArray(Buffer $buf, array $value, Type $type = null)
     {
-        $buf->writeByte(Type::N_ARRAY);
-        $temp = new Buffer();
-        foreach ($value as $v) {
-            if (!is_null($v)) {
-                self::writeValue($temp, $v, $type);
-            }
+        if (!is_null($type)) {
+            $packedArray = new TypePackedArray($type);
+            $packedArray->write($buf, $value);
+        } else {
+            $packedArray = self::checkType($value);
+            $packedArray->write($buf, $value);
         }
-        $buf->appendWithLen($temp);
     }
 
     public static function writeMap(Buffer $buf, array $value, Type $kType = null, Type $vType = null)
     {
-        $buf->writeByte(Type::N_MAP);
-        $temp = new Buffer();
-        foreach ($value as $k => $v) {
-            if (!is_null($k) && !is_null($v)) {
-                self::writeValue($temp, $k, $kType);
-                self::writeValue($temp, $v, $vType);
-            }
+        if (!is_null($kType) && !is_null($vType)) {
+            $packedMap = new TypePackedMap($kType, $vType);
+            $packedMap->write($buf, $value);
+        } else {
+            $packedMap = self::checkType($value);
+            $packedMap->write($buf, $value);
         }
-        $buf->appendWithLen($temp);
     }
 
     /**
-     * write all message fields according to readFieldsFunc.
+     * write all message fields according to writeFieldsFunc.
      * @param Buffer $buf
-     * @param string $name . message name
-     * @param function $writeFieldFunc . writeFieldFunc(Buffer $buf)
+     * @param callable $writeFieldFunc . writeFieldFunc(Buffer $buf)
      */
-    public static function writeMessage(Buffer $buf, $name, callable $writeFieldFunc)
+    public static function writeMessage(Buffer $buf, callable $writeFieldFunc)
     {
-        $buf->writeByte(Type::N_MESSAGE);
-        self::writeString($buf, $name);
-        $temp = new Buffer();
+        $temp = $buf->newSubBuffer();
         $writeFieldFunc($temp);
         $buf->appendWithLen($temp);
+    }
+
+    public static function writeMessageType(Buffer $buf, $name)
+    {
+        $index = $buf->getContext()->getMessageTypeIndex($name);
+        if (is_null($index)) {
+            $buf->writeByte(Type::T_MESSAGE);
+            TypeString::instance()->write($buf, $name, false);
+            $buf->getContext()->putMessageType($name);
+        } else {
+            if ($index > Type::DIRECT_REF_MESSAGE_MAX_VALUE) {
+                $buf->writeByte(Type::T_REF_MESSAGE);
+                $buf->writeVarInt($index);
+            } else {
+                $buf->writeByte(Type::T_REF_MESSAGE + $index);
+            }
+        }
     }
 
     /**
@@ -139,15 +149,14 @@ class BreezeWriter
      * @param int $index the index of message field.
      * @param mixed $value the value of message field.
      * @param Type $type the type of message field.
-     * @throws BreezeException
      */
-    public static function writeMessagField(Buffer $buf, $index, $value, Type $type = null)
+    public static function writeMessageField(Buffer $buf, $index, $value, Type $type)
     {
         if (is_null($value) || (is_array($value) && count($value) == 0)) {// null or empty array do not write to buffer.
             return;
         }
-        $buf->writeZigzag($index);
-        self::writeValue($buf, $value, $type);
+        $buf->writeVarInt($index);
+        $type->write($buf, $value);
     }
 
     /**
@@ -156,75 +165,26 @@ class BreezeWriter
      * if type is null, the value type will decided by function checkType(). it may not right for other language
      * @param Buffer $buf
      * @param mixed $value . it will write into buffer even the value is null.
+     * @param Type|null $type
      * @throws BreezeException :if the value type can not support by breeze ,the BreezeException is thrown
      */
     public static function writeValue(Buffer $buf, $value, Type $type = null)
     {
         if (is_null($value) || (is_array($value) && count($value) == 0)) {// null or empty array
-            $buf->writeByte(Type::N_NULL);
+            $buf->writeByte(Type::T_NULL);
             return;
         }
+        if (is_null($type)) {
+            $type = self::checkType($value);
+        }
+        $type->write($buf, $value, true);
+    }
+
+    public static function checkType($value)
+    {
         if ($value instanceof Message) {
-            self::writeByMessage($buf, $value);
-            return;
-        }
-        // TODO extension while checkType is TypeUnknown
-        self::writeWithType($buf, $value, is_null($type) ? self::checkType($value) : $type);
-    }
-
-    // param $type must not null.
-    private static function writeWithType(Buffer $buf, $value, Type $type)
-    {
-        switch ($type->getTypeNum()) {
-            case Type::N_TRUE: // TypeBool's numer is Type::N_TRUE
-                self::writeBool($buf, $value);
-                return;
-            case Type::N_STRING:
-                self::writeString($buf, $value);
-                return;
-            case Type::N_BYTE:
-                self::writeByte($buf, $value);
-                return;
-            case Type::N_BYTES:
-                self::writeBytes($buf, $value);
-                return;
-            case Type::N_INT16:
-                self::writeInt16($buf, $value);
-                return;
-            case Type::N_INT32:
-                self::writeInt32($buf, $value);
-                return;
-            case Type::N_INT64:
-                self::writeInt64($buf, $value);
-                return;
-            case Type::N_FLOAT32:
-                self::writeFloat32($buf, $value);
-                return;
-            case Type::N_FLOAT64:
-                self::writeFloat64($buf, $value);
-                return;
-            case Type::N_ARRAY:
-                self::writeArray($buf, $value, $type->getElemType());
-                return;
-            case Type::N_MAP:
-                self::writeMap($buf, $value, $type->getElemType()[0], $type->getElemType()[1]);
-                return;
-            case Type::N_MESSAGE:
-                self::writeByMessage($buf, $value);
-                return;
-            default:
-                throw new BreezeException('not support by breeze. type: ' . $type->getTypeNum());
-        }
-    }
-
-    private static function writeByMessage(Buffer $buf, Message $message)
-    {
-        $message->writeTo($buf);
-    }
-
-    private static function checkType($value)
-    {
-        if (is_bool($value)) {
+            return new TypeMessage($value->defaultInstance());
+        } elseif (is_bool($value)) {
             return TypeBool::instance();
         } elseif (is_string($value)) {
             return TypeString::instance();
@@ -235,15 +195,23 @@ class BreezeWriter
         } elseif (is_array($value)) {
             // must not empty
             if (self::is_assoc($value)) {// map
-                foreach ($value as $k => $v) {
-                    return new TypeMap(self::checkType($k), self::checkType($v));
+                if (Breeze::$IS_PACK) {
+                    foreach ($value as $k => $v) {
+                        return new TypePackedMap(self::checkType($k), self::checkType($v));
+                    }
+                } else {
+                    return TypeMap::instance();
                 }
+
             } else { // array
-                return new TypeArray(self::checkType(current($value)));
+                if (Breeze::$IS_PACK) {
+                    return new TypePackedArray(self::checkType(current($value)));
+                } else {
+                    return TypeArray::instance();
+                }
             }
         }
-        return TypeUnknown::instance();
-
+        throw new BreezeException('can not check to breezetype. value: ' . $value);
     }
 
     /**
