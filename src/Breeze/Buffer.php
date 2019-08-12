@@ -158,30 +158,25 @@ class Buffer
      */
     public function read($n)
     {
-        return substr($this->buf, $this->movePos($n), $n);
-    }
-
-    private function movePos($size)
-    {
         $curPos = $this->pos;
-        $this->pos += $size;
+        $this->pos += $n;
         if ($this->len < 0) {
             $this->len = strlen($this->buf);
         }
         if ($this->pos > $this->len) {
-            throw new BreezeException('not enough buffer, need:' . $size . ', pos:' . $curPos);
+            throw new BreezeException('not enough buffer, need:' . $n . ', pos:' . $curPos);
         }
-        return $curPos;
+        return substr($this->buf, $curPos, $n);
     }
 
     public function readByte()
     {
-        return unpack('C', $this->buf, $this->movePos(1))[1];
+        return unpack('C', $this->read(1))[1];
     }
 
     public function readInt16()
     {
-        $int16 = unpack('n', $this->buf, $this->movePos(2))[1];
+        $int16 = unpack('n', $this->read(2))[1];
         if (($int16 & 0x8000) != 0) {
             if (PHP_INT_SIZE == 4) {
                 $int16 = $int16 | 0xFFFF0000;
@@ -194,7 +189,7 @@ class Buffer
 
     public function readInt32()
     {
-        $int32 = unpack('N', $this->buf, $this->movePos(4))[1];
+        $int32 = unpack('N', $this->read(4))[1];
         if (PHP_INT_SIZE == 8 && ($int32 & 0x80000000) != 0) {
             $int32 = $int32 | 0xFFFFFFFF00000000;
         }
@@ -203,17 +198,17 @@ class Buffer
 
     public function readInt64()
     {
-        return unpack('J', $this->buf, $this->movePos(8))[1];
+        return unpack('J', $this->read(8))[1];
     }
 
     public function readFloat32()
     {
-        return unpack('f', pack('I', unpack('N', $this->buf, $this->movePos(4))[1]))[1];
+        return unpack('f', pack('I', unpack('N', $this->read(4))[1]))[1];
     }
 
     public function readFloat64()
     {
-        return unpack('d', pack('Q', unpack('J', $this->buf, $this->movePos(8))[1]))[1];
+        return unpack('d', pack('Q', unpack('J', $this->read(8))[1]))[1];
     }
 
     public function readZigzag()
