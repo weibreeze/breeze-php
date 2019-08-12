@@ -2,14 +2,14 @@
 /**
  * Copyright (c) 2009-2019. Weibo, Inc.
  *
- *    Licensed under the Apache License, Version 2.0 (the "License");
+ *    Licensed under the Apache License, Version 2.0 (the 'License');
  *    you may not use this file except in compliance with the License.
  *    You may obtain a copy of the License at
  *
  *             http://www.apache.org/licenses/LICENSE-2.0
  *
  *    Unless required by applicable law or agreed to in writing, software
- *    distributed under the License is distributed on an "AS IS" BASIS,
+ *    distributed under the License is distributed on an 'AS IS' BASIS,
  *    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  *    See the License for the specific language governing permissions and
  *    limitations under the License.
@@ -25,14 +25,19 @@ namespace Breeze;
 class Buffer
 {
     const MAX_VARINT_BYTES = 10;
+    const VARINT_SHIFT = (PHP_INT_SIZE << 3) - 7;
+    const VARINT_MASK = ~(0x7F << self::VARINT_SHIFT);
 
     private $buf;
     private $pos;// read position
+    private $len; // len for read.
+    private $context;
 
     public function __construct($buf = '')
     {
         $this->buf = $buf;
         $this->pos = 0;
+        $this->len = -1;
     }
 
     public function buffer()
@@ -45,9 +50,21 @@ class Buffer
         return $this->pos;
     }
 
+    public function setPos($pos = 0)
+    {
+        $this->pos = $pos;
+    }
+
+    public function reset()
+    {
+        $this->buf = '';
+        $this->pos = 0;
+        $this->len = -1;
+    }
+
     public function len()
     {
-        return strlen($this->buf);
+        return strlen($this->buf); // always use strlen.
     }
 
     /**
@@ -102,14 +119,14 @@ class Buffer
 
     public function writeZigzag($int)
     {
-        if (PHP_INT_SIZE == 4) {
+        if (PHP_INT_SIZE == 8) {
+            $int = ($int << 1) ^ ($int >> 63);
+        } else {
             if (bccomp($int, 0) >= 0) {
                 $int = bcmul($int, 2);
             } else {
                 $int = bcsub(bcmul(bcsub(0, $int), 2), 1);
             }
-        } else {
-            $int = ($int << 1) ^ ($int >> 63);
         }
         $this->writeVarInt($int);
     }
@@ -118,17 +135,17 @@ class Buffer
     {
         $high = 0;
         $low = 0;
-        if (PHP_INT_SIZE == 4) {
-            self::divideInt64ToInt32($int, $high, $low);
-        } else {
+        if (PHP_INT_SIZE == 8) {
             $low = $int;
+        } else {
+            static::divideInt64ToInt32($int, $high, $low);
         }
 
         while (($low >= 0x80 || $low < 0) || $high != 0) {
             $this->buf .= chr($low | 0x80);
-            $carry = ($high & 0x7F) << ((PHP_INT_SIZE << 3) - 7);
-            $high = ($high >> 7) & ~(0x7F << ((PHP_INT_SIZE << 3) - 7));
-            $low = (($low >> 7) & ~(0x7F << ((PHP_INT_SIZE << 3) - 7)) | $carry);
+            $carry = ($high & 0x7F) << self::VARINT_SHIFT;
+            $high = ($high >> 7) & self::VARINT_MASK;
+            $low = (($low >> 7) & self::VARINT_MASK | $carry);
         }
         $this->buf .= chr($low);
     }
@@ -141,22 +158,30 @@ class Buffer
      */
     public function read($n)
     {
-        if ($this->pos + $n > strlen($this->buf)) {
-            throw new BreezeException('not enough buffer');
+        return substr($this->buf, $this->movePos($n), $n);
+    }
+
+    private function movePos($size)
+    {
+        $curPos = $this->pos;
+        $this->pos += $size;
+        if ($this->len < 0) {
+            $this->len = strlen($this->buf);
         }
-        $v = substr($this->buf, $this->pos, $n);
-        $this->pos += $n;
-        return $v;
+        if ($this->pos > $this->len) {
+            throw new BreezeException('not enough buffer, need:' . $size . ', pos:' . $curPos);
+        }
+        return $curPos;
     }
 
     public function readByte()
     {
-        return unpack('C', $this->read(1))[1];
+        return unpack('C', $this->buf, $this->movePos(1))[1];
     }
 
     public function readInt16()
     {
-        $int16 = unpack('n', $this->read(2))[1];
+        $int16 = unpack('n', $this->buf, $this->movePos(2))[1];
         if (($int16 & 0x8000) != 0) {
             if (PHP_INT_SIZE == 4) {
                 $int16 = $int16 | 0xFFFF0000;
@@ -169,7 +194,7 @@ class Buffer
 
     public function readInt32()
     {
-        $int32 = unpack('N', $this->read(4))[1];
+        $int32 = unpack('N', $this->buf, $this->movePos(4))[1];
         if (PHP_INT_SIZE == 8 && ($int32 & 0x80000000) != 0) {
             $int32 = $int32 | 0xFFFFFFFF00000000;
         }
@@ -178,48 +203,69 @@ class Buffer
 
     public function readInt64()
     {
-        return unpack('J', $this->read(8))[1];
+        return unpack('J', $this->buf, $this->movePos(8))[1];
     }
 
     public function readFloat32()
     {
-        return unpack('f', pack('I', unpack('N', $this->read(4))[1]))[1];
+        return unpack('f', pack('I', unpack('N', $this->buf, $this->movePos(4))[1]))[1];
     }
 
     public function readFloat64()
     {
-        return unpack('d', pack('Q', unpack('J', $this->read(8))[1]))[1];
+        return unpack('d', pack('Q', unpack('J', $this->buf, $this->movePos(8))[1]))[1];
     }
 
     public function readZigzag()
     {
         $int = $this->readVarInt();
-        if (PHP_INT_SIZE == 4) {
+        if (PHP_INT_SIZE == 8) {
+            return (($int >> 1) & 0x7FFFFFFFFFFFFFFF) ^ (-($int & 1));
+        } else {
             if (bcmod($int, 2) == 0) {
                 return bcdiv($int, 2, 0);
             } else {
                 return bcsub(0, bcdiv(bcadd($int, 1), 2, 0));
             }
-        } else {
-            return (($int >> 1) & 0x7FFFFFFFFFFFFFFF) ^ (-($int & 1));
         }
     }
 
     public function readVarInt()
     {
         $count = 0;
+        if ($this->len < 0) {
+            $this->len = strlen($this->buf);
+        }
 
-        if (PHP_INT_SIZE == 4) {
+        if (PHP_INT_SIZE == 8) {
+            $result = 0;
+            $shift = 0;
+
+            do {
+                if ($this->pos >= $this->len) {
+                    throw new BreezeException('read varint not enough bytes');
+                }
+                if ($count === self::MAX_VARINT_BYTES) {
+                    throw new Exception('Varint overflow');
+                }
+                $byte = ord($this->buf[$this->pos]);
+                $result |= ($byte & 0x7f) << $shift;
+                $shift += 7;
+                $count++;
+                $this->pos++;
+            } while ($byte > 0x7f);
+            return $result;
+        } else {
             $high = 0;
             $low = 0;
             $b = 0;
 
             do {
-                if ($this->pos >= $this->len()) {
-                    throw new BreezeException("read varint not enough bytes");
+                if ($this->pos >= $this->len) {
+                    throw new BreezeException('read varint not enough bytes');
                 }
                 if ($count >= self::MAX_VARINT_BYTES) {
-                    throw new BreezeException("read varint overflow");
+                    throw new BreezeException('read varint overflow');
                 }
                 $b = ord($this->buf[$this->pos]);
                 $bits = 7 * $count;
@@ -238,23 +284,8 @@ class Buffer
 
             $result = static::combineInt32ToInt64($high, $low);
             if (bccomp($result, 0) < 0) {
-                $var = bcadd($result, "18446744073709551616");
+                $result = bcadd($result, '18446744073709551616');
             }
-            return $result;
-        } else {
-            $result = 0;
-            $shift = 0;
-
-            do {
-                if ($count === self::MAX_VARINT_BYTES) {
-                    throw new Exception("Varint overflow");
-                }
-                $byte = ord($this->buf[$this->pos]);
-                $result |= ($byte & 0x7f) << $shift;
-                $shift += 7;
-                $count++;
-                $this->pos++;
-            } while ($byte > 0x7f);
             return $result;
         }
     }
@@ -308,5 +339,21 @@ class Buffer
                 $high = (int)($high + 1);
             }
         }
+    }
+
+    public function getContext()
+    {
+        if ($this->context == null) {
+            $this->context = new Context();
+        }
+        return $this->context;
+    }
+
+    // new Buffer with the same context
+    public function newSubBuffer()
+    {
+        $subBuf = new Buffer();
+        $subBuf->context = $this->context;
+        return $subBuf;
     }
 }

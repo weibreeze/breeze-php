@@ -20,8 +20,19 @@ namespace Breeze;
 
 use Breeze\Types\Type;
 use Breeze\Types\TypeArray;
+use Breeze\Types\TypeBool;
+use Breeze\Types\TypeByte;
+use Breeze\Types\TypeBytes;
+use Breeze\Types\TypeFloat32;
+use Breeze\Types\TypeFloat64;
+use Breeze\Types\TypeInt16;
+use Breeze\Types\TypeInt32;
+use Breeze\Types\TypeInt64;
 use Breeze\Types\TypeMap;
 use Breeze\Types\TypeMessage;
+use Breeze\Types\TypePackedArray;
+use Breeze\Types\TypePackedMap;
+use Breeze\Types\TypeString;
 
 /**
  * read value from breeze buffer.
@@ -30,17 +41,6 @@ use Breeze\Types\TypeMessage;
  */
 class BreezeReader
 {
-    /**
-     * read a field into MessageField.
-     * @param Buffer $buf
-     * @param MessageField $field
-     * @throws BreezeException
-     */
-    public static function readField(Buffer $buf, MessageField &$field)
-    {
-        $field->setValue(self::readValue($buf, $field->getFieldDesc()->getType()));
-    }
-
     /**
      * read all message fields according to readFieldsFunc.
      * @param Buffer $buf
@@ -53,7 +53,7 @@ class BreezeReader
         if ($total > 0) {
             $end = $buf->pos() + $total;
             while ($buf->pos() < $end) {
-                $index = $buf->readZigzag();
+                $index = $buf->readVarInt();
                 $readFieldsFunc($buf, $index);
             }
             if ($buf->pos() != $end) {
@@ -63,183 +63,110 @@ class BreezeReader
     }
 
     /**
-     * read value by type.
+     * read any value.
      * @param Buffer $buf
-     * @param Type|null $type
      * @return mixed
      * @throws BreezeException
      */
-    public static function readValue(Buffer $buf, Type $type = null)
+    public static function readValue(Buffer $buf)
     {
-        $t = $buf->readByte();
-        switch ($t) {
-            case Type::N_TRUE:
-                if (is_null($type) || $type->getTypeNum() == Type::N_TRUE) {
-                    return true;
-                }
-                break;
-            case Type::N_FALSE:
-                if (is_null($type) || $type->getTypeNum() == Type::N_TRUE) {
-                    return false;
-                }
-                break;
-            case Type::N_STRING:
-                return self::readStringWithoutTag($buf, $type);
-            case Type::N_BYTE:
-                return self::readByteWithoutTag($buf, $type);
-            case Type::N_BYTES:
-                return self::readBytesWithoutTag($buf, $type);
-            case Type::N_INT16:
-                return self::readInt16WithoutTag($buf, $type);
-            case Type::N_INT32:
-                return self::readInt32WithoutTag($buf, $type);
-            case Type::N_INT64:
-                return self::readInt64WithoutTag($buf, $type);
-            case Type::N_FLOAT32:
-                return self::readFlaot32WithoutTag($buf, $type);
-            case Type::N_FLOAT64:
-                return self::readFloat64WithoutTag($buf, $type);
-            case Type::N_ARRAY:
-                return self::readArrayWithoutTag($buf, $type);
-            case Type::N_MAP:
-                return self::readMapWithoutTag($buf, $type);
-            case Type::N_MESSAGE:
-                return self::readMessageWithoutTag($buf, $type);
-            default:
-                throw new BreezeException('unknown breeze type. expect type: ' . $type->getTypeNum() . ', real type:' . $t);
-
+        $tp = $buf->readByte();
+        if ($tp == Type::T_NULL) {
+            return null;
+        } elseif ($tp < Type::T_NULL) {
+            $result = self::readDirectBasic($buf, $tp);
+            if (!is_null($result)) {
+                return $result;
+            }
+        } elseif ($tp == Type::T_TRUE) {
+            return true;
+        } elseif ($tp == Type::T_FALSE) {
+            return false;
         }
-        throw new BreezeException('not support by breeze. expect type: ' . $type->getTypeNum() . ', real type:' . $t);
+        $type = self::getType($buf, $tp);
+        return $type->read($buf, false);
     }
 
-    private static function readStringWithoutTag(Buffer $buf, Type $type = null)
+    public static function skipType(Buffer $buf)
     {
-        $len = $buf->readZigzag();
-        return self::cast($buf->read($len), $type);
-    }
-
-    private static function readByteWithoutTag(Buffer $buf, Type $type = null)
-    {
-        return self::cast($buf->readByte(), $type);
-    }
-
-    private static function readBytesWithoutTag(Buffer $buf, Type $type = null)
-    {
-        $len = $buf->readInt32();
-        return self::cast($buf->read($len), $type);
-    }
-
-    private static function readInt16WithoutTag(Buffer $buf, Type $type = null)
-    {
-        return self::cast($buf->readInt16(), $type);
-    }
-
-    private static function readInt32WithoutTag(Buffer $buf, Type $type = null)
-    {
-        return self::cast($buf->readZigzag(), $type);
-    }
-
-    private static function readInt64WithoutTag(Buffer $buf, Type $type = null)
-    {
-        return self::cast($buf->readZigzag(), $type);
-    }
-
-    private static function readFlaot32WithoutTag(Buffer $buf, Type $type = null)
-    {
-        return self::cast($buf->readFloat32(), $type);
-    }
-
-    private static function readFloat64WithoutTag(Buffer $buf, Type $type = null)
-    {
-        return self::cast($buf->readFloat64(), $type);
-    }
-
-    private static function readArrayWithoutTag(Buffer $buf, Type $type = null)
-    {
-        $result = array();
-        $total = $buf->readInt32();
-        if ($total > 0) {
-            $elemType = null;
-            if (!is_null($type) && $type instanceof TypeArray) {
-                $elemType = $type->getElemType();
-            }
-            $end = $buf->pos() + $total;
-            while ($buf->pos() < $end) {
-                $result[] = self::readValue($buf, $elemType);
-            }
-            if ($buf->pos() != $end) {
-                throw new BreezeException('Breeze: read byte size not correct');
-            }
+        $tp = $buf->readByte();
+        if ($tp >= Type::T_MESSAGE) {
+            self::readMessageNameByType($buf, $tp);
         }
-        return $result;
     }
 
-    private static function readMapWithoutTag(Buffer $buf, Type $type = null)
+    public static function readType(Buffer $buf)
     {
-        $result = array();
-        $total = $buf->readInt32();
-        if ($total > 0) {
-            $kType = null;
-            $vType = null;
-            if (!is_null($type) && $type instanceof TypeMap) {
-                $kType = $type->getElemType()[0];
-                $vType = $type->getElemType()[1];
-            }
-            $end = $buf->pos() + $total;
-            while ($buf->pos() < $end) {
-                $result[self::readValue($buf, $kType)] = self::readValue($buf, $vType);
-            }
-            if ($buf->pos() != $end) {
-                throw new BreezeException('Breeze: read byte size not correct');
-            }
-        }
-        return $result;
+        $tp = $buf->readByte();
+        return self::getType($buf, $tp);
     }
 
-    private static function readMessageWithoutTag(Buffer $buf, Type $type = null)
+    public static function getType(Buffer $buf, $tp)
     {
-        $t = $buf->readByte();
-        if ($t != Type::N_STRING) {
-            throw new BreezeException('worng breeze message format. need name type 3');
+        if ($tp >= Type::T_MESSAGE) {
+            $name = self::readMessageNameByType($buf, $tp);
+            $msg = Breeze::getMessage($name);
+            if (is_null($msg)) {
+                $msg = new GenericMessage($name);
+            }
+            return new TypeMessage($msg);
         }
-        $name = self::readStringWithoutTag($buf);
-        $message = null;
-        if (is_null($type)) {
-            $message = Breeze::getMessage($name);
+        switch ($tp) {
+            case Type::T_STRING:
+                return TypeString::instance();
+            case Type::T_INT32:
+                return TypeInt32::instance();
+            case Type::T_INT64:
+                return TypeInt64::instance();
+            case Type::T_TRUE:
+                return TypeBool::instance();
+            case Type::T_PACKED_ARRAY:
+                return new TypePackedArray();
+            case Type::T_PACKED_MAP:
+                return new TypePackedMap();
+            case Type::T_FLOAT32:
+                return TypeFloat32::instance();
+            case Type::T_FLOAT64:
+                return TypeFloat64::instance();
+            case Type::T_ARRAY:
+                return TypeArray::instance();
+            case Type::T_MAP:
+                return TypeMap::instance();
+            case Type::T_BYTE:
+                return TypeByte::instance();
+            case Type::T_BYTES:
+                return TypeBytes::instance();
+            case Type::T_INT16:
+                return TypeInt16::instance();
+        }
+        throw new BreezeException('unknown breeze type:' . $tp);
+    }
+
+    public static function readMessageNameByType(Buffer $buf, $tp)
+    {
+        if ($tp == Type::T_MESSAGE) {
+            $name = TypeString::readString($buf);
+            $buf->getContext()->putMessageType($name);
+            return $name;
         } else {
-            if (!$type instanceof TypeMessage) {
-                throw new BreezeException('can not read breeze message:' . $name . ' to type:' . $type->getTypeNum());
+            if ($tp == Type::T_REF_MESSAGE) {
+                $index = $buf->readVarInt();
+            } else {
+                $index = $tp - Type::T_REF_MESSAGE;
             }
-            $message = $type->getDefault();
+            return $buf->getContext()->getMessageTypeName($index);
         }
-        if (is_null($message)) { // use GenericMessage as default if not find message.
-            $message = new GenericMessage($name);
-        }
-        $message->readFrom($buf);
-        return $message;
     }
 
-    private static function cast($value, Type $type = null)
+    public static function readDirectBasic(Buffer $buf, $tp)
     {
-        if (is_null($type)) {
-            return $value;
+        if (TypeString::isDirectString($tp)) {
+            return TypeString::readStringBySize($buf, $tp);
+        } elseif (TypeInt32::isDirectInt32($tp)) {
+            return TypeInt32::getDirectInt32($tp);
+        } elseif (TypeInt64::isDirectInt64($tp)) {
+            return TypeInt64::getDirectInt64($tp);
         }
-        switch ($type->getTypeNum()) {
-            case Type::N_TRUE:
-            case Type::N_FALSE:
-                return (bool)$value;
-            case Type::N_STRING:
-            case Type::N_BYTES:
-                return (string)$value;
-            case Type::N_BYTE:
-            case Type::N_INT16:
-            case Type::N_INT32:
-            case Type::N_INT64:
-                return (int)$value;
-            case Type::N_FLOAT32:
-            case Type::N_FLOAT64:
-                return (float)$value;
-        }
-        throw new BreezeException('can not convert to type: ' . $type->getTypeNum() . ', real type:' . gettype($value));
+        return null;
     }
 }

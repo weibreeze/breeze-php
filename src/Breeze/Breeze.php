@@ -19,12 +19,15 @@
 namespace Breeze;
 
 /**
- * Breeze contains all globle function of breeze.
+ * Breeze contains all global function of breeze.
  * @author: zhanglei
  *  Created at: 2019-04-30
  */
 class Breeze
 {
+    public static $IS_PACK = true;
+    public static $CHECK_VALUE = true;
+
     private static $schemaSeeker = null;
     private static $messageInstances = array();
 
@@ -44,13 +47,13 @@ class Breeze
     /**
      * register a breeze message, thus can read such message by message name.
      * @param Message $message
-     * @param bool $throwException . if true, it will thorw BreezeException while message name or alias already registered.
+     * @param bool $throwException . if true, it will throw BreezeException while message name or alias already registered.
      * @throws BreezeException
      */
     public static function registerMessage(Message $message, $throwException = true)
     {
         if (isset(self::$messageInstances[$message->getName()])) {
-            if (get_class(self::$messageInstances[$message->getName()]) === get_class($message)) { // alread registered before.
+            if (get_class(self::$messageInstances[$message->getName()]) === get_class($message)) { // already registered before.
                 return;
             }
             if ($throwException) {
@@ -87,7 +90,11 @@ class Breeze
 
 class NonSeeker implements SchemaSeeker
 {
-    public function seekSchema($messagName)
+    /**
+     * @param string $messageName
+     * @return Schema|null
+     */
+    public function seekSchema($messageName)
     {
         return null;//do nothing
     }

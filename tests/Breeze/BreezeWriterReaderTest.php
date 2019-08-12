@@ -5,14 +5,11 @@ use Breeze\Breeze;
 use Breeze\BreezeReader;
 use Breeze\BreezeWriter;
 use Breeze\Buffer;
-use Breeze\FieldDesc;
-use Breeze\MessageField;
 use Breeze\Test\MyEnum;
 use Breeze\Test\TestMsg;
 use Breeze\Test\TestStruct;
 use Breeze\Test\TestSubMsg;
 use Breeze\Types\Type;
-use Breeze\Types\TypeArray;
 use Breeze\Types\TypeBool;
 use Breeze\Types\TypeByte;
 use Breeze\Types\TypeBytes;
@@ -21,8 +18,9 @@ use Breeze\Types\TypeFloat64;
 use Breeze\Types\TypeInt16;
 use Breeze\Types\TypeInt32;
 use Breeze\Types\TypeInt64;
-use Breeze\Types\TypeMap;
 use Breeze\Types\TypeMessage;
+use Breeze\Types\TypePackedArray;
+use Breeze\Types\TypePackedMap;
 use Breeze\Types\TypeString;
 
 class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
@@ -33,13 +31,13 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             new TestStruct(123, TypeInt32::instance()),
             new TestStruct(true, TypeBool::instance()),
             new TestStruct('j)(*U""', TypeString::instance()),
-            new TestStruct([123, 45, 657], new TypeArray(TypeInt32::instance())),
-            new TestStruct(['ser', 'er3'], new TypeArray(TypeString::instance())),
-            new TestStruct([0 => 'se', 1 => 'er', 2 => 'tr'], new TypeArray(TypeString::instance())),
-            new TestStruct([123 => 'erw', 45 => 'wer', 657 => 'terd'], new TypeMap(TypeInt32::instance(), TypeString::instance())),
-            new TestStruct(['ser' => 45, 'er3' => 678], new TypeMap(TypeString::instance(), TypeInt32::instance())),
-            new TestStruct([1 => 'se', 2 => 'er', 4 => 'tr'], new TypeMap(TypeInt16::instance(), TypeString::instance())),
-            new TestStruct($this->getTestMsg(), new TypeMessage(new TestMsg())),
+            new TestStruct([123, 45, 657], new TypePackedArray(TypeInt32::instance())),
+            new TestStruct(['ser', 'er3'], new TypePackedArray(TypeString::instance())),
+            new TestStruct([0 => 'se', 1 => 'er', 2 => 'tr'], new TypePackedArray(TypeString::instance())),
+            new TestStruct([123 => 'erw', 45 => 'wer', 657 => 'terd'], new TypePackedMap(TypeInt32::instance(), TypeString::instance())),
+            new TestStruct(['ser' => 45, 'er3' => 678], new TypePackedMap(TypeString::instance(), TypeInt32::instance())),
+            new TestStruct([1 => 'se', 2 => 'er', 4 => 'tr'], new TypePackedMap(TypeInt32::instance(), TypeString::instance())),
+            new TestStruct($this->getTestMsg(), new TypeMessage(new TestMsg(false))),
             new TestStruct(new MyEnum(MyEnum::E2), new TypeMessage(new MyEnum())),
         ];
         //with type
@@ -47,7 +45,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeValue($buf, $v->v, $v->t);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, $v->t);
+            $r = $v->t->read($newBuf, true);
             $this->assertEquals($v->v, $r, 'write value');
         }
         // write without type
@@ -55,7 +53,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeValue($buf, $v->v);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, $v->t);
+            $r = $v->t->read($newBuf, true);
             $this->assertEquals($v->v, $r, 'write value');
         }
 
@@ -238,9 +236,9 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
     public function testWriteArray()
     {
         $array = [
-            new TestStruct([123, 45, 657], new TypeArray(TypeInt32::instance())),
-            new TestStruct(['ser', 'er3'], new TypeArray(TypeString::instance())),
-            new TestStruct([0 => 'se', 1 => 'er', 2 => 'tr'], new TypeArray(TypeString::instance())),
+            new TestStruct([123, 45, 657], new TypePackedArray(TypeInt32::instance())),
+            new TestStruct(['ser', 'er3'], new TypePackedArray(TypeString::instance())),
+            new TestStruct([0 => 'se', 1 => 'er', 2 => 'tr'], new TypePackedArray(TypeString::instance())),
         ];
         foreach ($array as $v) {
             $buf = new Buffer();
@@ -254,9 +252,9 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
     public function testWriteMap()
     {
         $array = [
-            new TestStruct([123 => 'erw', 45 => 'wer', 657 => 'terd'], new TypeMap(TypeInt32::instance(), TypeString::instance())),
-            new TestStruct(['ser' => 45, 'er3' => 678], new TypeMap(TypeString::instance(), TypeInt32::instance())),
-            new TestStruct([1 => 'se', 2 => 'er', 4 => 'tr'], new TypeMap(TypeInt16::instance(), TypeString::instance())),
+            new TestStruct([123 => 'erw', 45 => 'wer', 657 => 'terd'], new TypePackedMap(TypeInt32::instance(), TypeString::instance())),
+            new TestStruct(['ser' => 45, 'er3' => 678], new TypePackedMap(TypeString::instance(), TypeInt32::instance())),
+            new TestStruct([1 => 'se', 2 => 'er', 4 => 'tr'], new TypePackedMap(TypeInt16::instance(), TypeString::instance())),
         ];
         foreach ($array as $v) {
             $buf = new Buffer();
@@ -271,32 +269,28 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
     {
         $buf = new Buffer();
         $name = 'msg name';
-        BreezeWriter::writeMessage($buf, $name, function (Buffer $fbuf) {
-            BreezeWriter::writeMessagField($fbuf, 1, '234', TypeString::instance());
-            BreezeWriter::writeMessagField($fbuf, 2, -234, TypeInt32::instance());
-            BreezeWriter::writeMessagField($fbuf, 3, $this->getTestMsg(), new TypeMessage(new TestMsg()));
+        BreezeWriter::writeMessageType($buf, $name);
+        BreezeWriter::writeMessage($buf, function (Buffer $fbuf) {
+            BreezeWriter::writeMessageField($fbuf, 1, '234', TypeString::instance());
+            BreezeWriter::writeMessageField($fbuf, 2, -234, TypeInt32::instance());
+            BreezeWriter::writeMessageField($fbuf, 3, $this->getTestMsg(), new TypeMessage(new TestMsg()));
         });
         $newBuf = new Buffer($buf->buffer());
         $tp = $newBuf->readByte();
-        $this->assertEquals(Type::N_MESSAGE, $tp, 'message type');
+        $this->assertEquals(Type::T_MESSAGE, $tp, 'message type');
         $rname = BreezeReader::readValue($newBuf, TypeString::instance());
         $this->assertEquals($name, $rname, 'message name');
         BreezeReader::readMessage($newBuf, function (Buffer $fbuf, $index) {
             switch ($index) {
                 case 1:
-                    $f = new MessageField(new FieldDesc(1, 's', TypeString::instance()));
-                    BreezeReader::readField($fbuf, $f);
-                    $this->assertEquals('234', $f->getValue(), 'write messge');
+                    $this->assertEquals('234', TypeString::instance()->read($fbuf), 'write messge');
                     return;
                 case 2:
-                    $f = new MessageField(new FieldDesc(2, 'i', TypeInt32::instance()));
-                    BreezeReader::readField($fbuf, $f);
-                    $this->assertEquals(-234, $f->getValue(), 'write messge');
+                    $this->assertEquals(-234, TypeInt32::instance()->read($fbuf), 'write messge');
                     return;
                 case 3:
-                    $f = new MessageField(new FieldDesc(3, 'm', new TypeMessage(new TestMsg())));
-                    BreezeReader::readField($fbuf, $f);
-                    $this->assertEquals($this->getTestMsg(), $f->getValue(), 'write messge');
+                    $type3 = new TypeMessage(new TestMsg());
+                    $this->assertEquals($this->getTestMsg(), $type3->read($fbuf), 'write messge');
                     return;
             }
         });
@@ -340,24 +334,24 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
     private function getTestMsg()
     {
         $msg = new TestMsg();
-        $msg->setInt(1234);
-        $msg->setString('ewjo3**#J');
+        $msg->setMyInt(1234);
+        $msg->setMyString('ewjo3**#J');
 
         $subMsg = new TestSubMsg();
-        $subMsg->setString('J(*#^H');
-        $subMsg->setInt(-345);
-        $subMsg->setBool(true);
-        $subMsg->setByte(36);
-        $subMsg->setBytes(pack('N', 2435));
-        $subMsg->setFloat32(3);
-        $subMsg->setFloat64(7);
-        $subMsg->setInt64(723847289347398);
-        $subMsg->setArray([234, 5467, -678, 0]);
-        $subMsg->setMap1(['j(*&*(' => 'fj98A)', 'J()*#' => pack('l', -4578)]);
-        $subMsg->setMap2([234 => [-45, 0], 3465 => [0, 345]]);
+        $subMsg->setMyString('J(*#^H');
+        $subMsg->setMyInt(-345);
+        $subMsg->setMyBool(true);
+        $subMsg->setMyByte(36);
+        $subMsg->setMyBytes(pack('N', 2435));
+        $subMsg->setMyFloat32(3);
+        $subMsg->setMyFloat64(7);
+        $subMsg->setMyInt64(723847289347398);
+        $subMsg->setMyArray([234, 5467, -678, 0]);
+        $subMsg->setMyMap1(['j(*&*(' => 'fj98A)', 'J()*#' => pack('l', -4578)]);
+        $subMsg->setMyMap2([234 => [-45, 0], 3465 => [0, 345]]);
 
-        $msg->setArray([$subMsg]);
-        $msg->setMap(['J(*U' => $subMsg]);
+        $msg->setMyArray([$subMsg]);
+        $msg->setMyMap(['J(*U' => $subMsg]);
         return $msg;
     }
 }

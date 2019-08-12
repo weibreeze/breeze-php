@@ -26,8 +26,8 @@ interface SchemaSeeker
 {
     /**
      * seek schema by message name.
-     * @param string $messagName
+     * @param string $messageName
      * @return Schema
      */
-    public function seekSchema($messagName);
+    public function seekSchema($messageName);
 }
