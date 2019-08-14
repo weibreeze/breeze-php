@@ -155,27 +155,27 @@ class GenericMessage implements Message
         }
     }
 
-    public function getName()
+    public function messageName()
     {
         return $this->name;
     }
 
-    public function setName($name)
+    public function setMessageName($name)
     {
         $this->name = $name;
     }
 
-    public function getAlias()
+    public function messageAlias()
     {
         return $this->alias;
     }
 
-    public function setAlias($alias)
+    public function setMessageAlias($alias)
     {
         $this->alias = $alias;
     }
 
-    public function getSchema()
+    public function schema()
     {
         return $this->schema;
     }

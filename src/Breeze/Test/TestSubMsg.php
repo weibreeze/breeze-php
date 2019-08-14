@@ -154,17 +154,17 @@ class TestSubMsg implements Message
         return new TestSubMsg();
     }
 
-    public function getName()
+    public function messageName()
     {
         return 'motan.TestSubMsg';
     }
 
-    public function getAlias()
+    public function messageAlias()
     {
         return '';
     }
 
-    public function getSchema()
+    public function schema()
     {
         if (is_null(self::$schema)) {
             $this->initSchema();
@@ -180,7 +180,7 @@ class TestSubMsg implements Message
     public function setMyString($value)
     {
         if (Breeze::$CHECK_VALUE && !self::$_myStringType->checkType($value)) {
-            throw new BreezeException('check type fail. method:' . $this->getName() . '->setMyString');
+            throw new BreezeException('check type fail. method:' . $this->messageName() . '->setMyString');
         }
         $this->myString = $value;
         return $this;
@@ -194,7 +194,7 @@ class TestSubMsg implements Message
     public function setMyInt($value)
     {
         if (Breeze::$CHECK_VALUE && !self::$_myIntType->checkType($value)) {
-            throw new BreezeException('check type fail. method:' . $this->getName() . '->setMyInt');
+            throw new BreezeException('check type fail. method:' . $this->messageName() . '->setMyInt');
         }
         $this->myInt = $value;
         return $this;
@@ -208,7 +208,7 @@ class TestSubMsg implements Message
     public function setMyInt64($value)
     {
         if (Breeze::$CHECK_VALUE && !self::$_myInt64Type->checkType($value)) {
-            throw new BreezeException('check type fail. method:' . $this->getName() . '->setMyInt64');
+            throw new BreezeException('check type fail. method:' . $this->messageName() . '->setMyInt64');
         }
         $this->myInt64 = $value;
         return $this;
@@ -222,7 +222,7 @@ class TestSubMsg implements Message
     public function setMyFloat32($value)
     {
         if (Breeze::$CHECK_VALUE && !self::$_myFloat32Type->checkType($value)) {
-            throw new BreezeException('check type fail. method:' . $this->getName() . '->setMyFloat32');
+            throw new BreezeException('check type fail. method:' . $this->messageName() . '->setMyFloat32');
         }
         $this->myFloat32 = $value;
         return $this;
@@ -236,7 +236,7 @@ class TestSubMsg implements Message
     public function setMyFloat64($value)
     {
         if (Breeze::$CHECK_VALUE && !self::$_myFloat64Type->checkType($value)) {
-            throw new BreezeException('check type fail. method:' . $this->getName() . '->setMyFloat64');
+            throw new BreezeException('check type fail. method:' . $this->messageName() . '->setMyFloat64');
         }
         $this->myFloat64 = $value;
         return $this;
@@ -250,7 +250,7 @@ class TestSubMsg implements Message
     public function setMyByte($value)
     {
         if (Breeze::$CHECK_VALUE && !self::$_myByteType->checkType($value)) {
-            throw new BreezeException('check type fail. method:' . $this->getName() . '->setMyByte');
+            throw new BreezeException('check type fail. method:' . $this->messageName() . '->setMyByte');
         }
         $this->myByte = $value;
         return $this;
@@ -264,7 +264,7 @@ class TestSubMsg implements Message
     public function setMyBytes($value)
     {
         if (Breeze::$CHECK_VALUE && !self::$_myBytesType->checkType($value)) {
-            throw new BreezeException('check type fail. method:' . $this->getName() . '->setMyBytes');
+            throw new BreezeException('check type fail. method:' . $this->messageName() . '->setMyBytes');
         }
         $this->myBytes = $value;
         return $this;
@@ -278,7 +278,7 @@ class TestSubMsg implements Message
     public function setMyMap1($value)
     {
         if (Breeze::$CHECK_VALUE && !self::$_myMap1Type->checkType($value)) {
-            throw new BreezeException('check type fail. method:' . $this->getName() . '->setMyMap1');
+            throw new BreezeException('check type fail. method:' . $this->messageName() . '->setMyMap1');
         }
         $this->myMap1 = $value;
         return $this;
@@ -292,7 +292,7 @@ class TestSubMsg implements Message
     public function setMyMap2($value)
     {
         if (Breeze::$CHECK_VALUE && !self::$_myMap2Type->checkType($value)) {
-            throw new BreezeException('check type fail. method:' . $this->getName() . '->setMyMap2');
+            throw new BreezeException('check type fail. method:' . $this->messageName() . '->setMyMap2');
         }
         $this->myMap2 = $value;
         return $this;
@@ -306,7 +306,7 @@ class TestSubMsg implements Message
     public function setMyArray($value)
     {
         if (Breeze::$CHECK_VALUE && !self::$_myArrayType->checkType($value)) {
-            throw new BreezeException('check type fail. method:' . $this->getName() . '->setMyArray');
+            throw new BreezeException('check type fail. method:' . $this->messageName() . '->setMyArray');
         }
         $this->myArray = $value;
         return $this;
@@ -320,7 +320,7 @@ class TestSubMsg implements Message
     public function setMyBool($value)
     {
         if (Breeze::$CHECK_VALUE && !self::$_myBoolType->checkType($value)) {
-            throw new BreezeException('check type fail. method:' . $this->getName() . '->setMyBool');
+            throw new BreezeException('check type fail. method:' . $this->messageName() . '->setMyBool');
         }
         $this->myBool = $value;
         return $this;

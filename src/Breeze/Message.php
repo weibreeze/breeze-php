@@ -28,11 +28,11 @@ interface Message
 
     public function readFrom(Buffer $buf);
 
-    public function getName();
+    public function messageName();
 
-    public function getAlias();
+    public function messageAlias();
 
-    public function getSchema();
+    public function schema();
 
     public function defaultInstance();
 }

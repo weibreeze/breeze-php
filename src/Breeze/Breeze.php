@@ -52,20 +52,20 @@ class Breeze
      */
     public static function registerMessage(Message $message, $throwException = true)
     {
-        if (isset(self::$messageInstances[$message->getName()])) {
-            if (get_class(self::$messageInstances[$message->getName()]) === get_class($message)) { // already registered before.
+        if (isset(self::$messageInstances[$message->messageName()])) {
+            if (get_class(self::$messageInstances[$message->messageName()]) === get_class($message)) { // already registered before.
                 return;
             }
             if ($throwException) {
-                throw new BreezeException('message name \'' . $message->getName() . '\' is already register in Breeze');
+                throw new BreezeException('message name \'' . $message->messageName() . '\' is already register in Breeze');
             }
         }
-        if (isset(self::$messageInstances[$message->getAlias()]) && $throwException) {
-            throw new BreezeException('message alias \'' . $message->getAlias() . '\' is already register in Breeze');
+        if (isset(self::$messageInstances[$message->messageAlias()]) && $throwException) {
+            throw new BreezeException('message alias \'' . $message->messageAlias() . '\' is already register in Breeze');
         }
-        self::$messageInstances[$message->getName()] = $message;
-        if (!empty($message->getAlias())) {
-            self::$messageInstances[$message->getAlias()] = $message;
+        self::$messageInstances[$message->messageName()] = $message;
+        if (!empty($message->messageAlias())) {
+            self::$messageInstances[$message->messageAlias()] = $message;
         }
     }
 

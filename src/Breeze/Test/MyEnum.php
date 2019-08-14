@@ -82,17 +82,17 @@ class MyEnum implements Message
         return new MyEnum();
     }
 
-    public function getName()
+    public function messageName()
     {
         return 'motan.MyEnum';
     }
 
-    public function getAlias()
+    public function messageAlias()
     {
         return '';
     }
 
-    public function getSchema()
+    public function schema()
     {
         if (is_null(self::$schema)) {
             $this->initSchema();

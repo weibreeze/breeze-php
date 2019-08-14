@@ -59,18 +59,18 @@ class TypeMessage implements Type
     public function write(Buffer $buf, $value, $withType = true)
     {
         if ($withType) {
-            BreezeWriter::writeMessageType($buf, $this->message->getName());
+            BreezeWriter::writeMessageType($buf, $this->message->messageName());
         }
         $value->writeTo($buf);
     }
 
     public function checkType($value)
     {
-        return ($value instanceof Message) && $value->getName() === $this->message->getName();
+        return ($value instanceof Message) && $value->messageName() === $this->message->messageName();
     }
 
     public function writeType(Buffer $buf)
     {
-        BreezeWriter::writeMessageType($buf, $this->message->getName());
+        BreezeWriter::writeMessageType($buf, $this->message->messageName());
     }
 }
