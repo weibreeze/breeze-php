@@ -14,7 +14,7 @@ Breeze-PHP是[Breeze](https://github.com/weibreeze/breeze)序列化的php实现.
 
 ```json
   "require" : {
-    "wei-breeze/breeze": "dev-release-v0.1.0"
+    "wei-breeze/breeze": "v0.1.0"
   }
 ```
 
