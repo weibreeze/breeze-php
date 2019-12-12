@@ -45,10 +45,10 @@ class TypeInt16 implements Type
 
     public function read(Buffer $buf, $withType = true)
     {
-        $tp = self::T_INT16;
-        if ($withType) {
-            $tp = $buf->readByte();
+        if (!$withType) {
+            return $buf->readInt16();
         }
+        $tp = $buf->readByte();
         switch ($tp) {
             case self::T_INT16:
                 return $buf->readInt16();

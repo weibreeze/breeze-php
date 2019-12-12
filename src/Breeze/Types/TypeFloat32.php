@@ -45,10 +45,10 @@ class TypeFloat32 implements Type
 
     public function read(Buffer $buf, $withType = true)
     {
-        $tp = self::T_FLOAT32;
-        if ($withType) {
-            $tp = $buf->readByte();
+        if (!$withType) {
+            return $buf->readFloat32();
         }
+        $tp = $buf->readByte();
         switch ($tp) {
             case self::T_FLOAT32:
                 return $buf->readFloat32();

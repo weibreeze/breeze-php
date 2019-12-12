@@ -45,10 +45,10 @@ class TypeInt64 implements Type
 
     public function read(Buffer $buf, $withType = true)
     {
-        $tp = self::T_INT64;
-        if ($withType) {
-            $tp = $buf->readByte();
+        if (!$withType) {
+            return $buf->readZigzag();
         }
+        $tp = $buf->readByte();
         if (self::isDirectInt64($tp)) {
             return self::getDirectInt64($tp);
         }

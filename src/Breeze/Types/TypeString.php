@@ -45,10 +45,10 @@ class TypeString implements Type
 
     public function read(Buffer $buf, $withType = true)
     {
-        $tp = self::T_STRING;
-        if ($withType) {
-            $tp = $buf->readByte();
+        if (!$withType) {
+            return TypeString::readString($buf);
         }
+        $tp = $buf->readByte();
         if (self::isDirectString($tp)) {
             return self::readStringBySize($buf, $tp);
         }

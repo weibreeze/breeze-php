@@ -46,10 +46,10 @@ class TypeArray implements Type
 
     public function read(Buffer $buf, $withType = true)
     {
-        $tp = self::T_ARRAY;
-        if ($withType) {
-            $tp = $buf->readByte();
+        if (!$withType) {
+            return self::readArray($buf);
         }
+        $tp = $buf->readByte();
         switch ($tp) {
             case self::T_ARRAY:
                 return self::readArray($buf);

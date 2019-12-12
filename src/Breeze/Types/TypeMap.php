@@ -47,10 +47,10 @@ class TypeMap implements Type
 
     public function read(Buffer $buf, $withType = true)
     {
-        $tp = self::T_MAP;
-        if ($withType) {
-            $tp = $buf->readByte();
+        if (!$withType) {
+            return self::readMap($buf);
         }
+        $tp = $buf->readByte();
         switch ($tp) {
             case self::T_MAP:
                 return self::readMap($buf);

@@ -45,10 +45,11 @@ class TypeInt32 implements Type
 
     public function read(Buffer $buf, $withType = true)
     {
-        $tp = self::T_INT32;
-        if ($withType) {
-            $tp = $buf->readByte();
+        if (!$withType) {
+            return $buf->readZigzag();
         }
+        // with type
+        $tp = $buf->readByte();
         if (self::isDirectInt32($tp)) {
             return self::getDirectInt32($tp);
         }

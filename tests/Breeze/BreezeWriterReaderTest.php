@@ -32,7 +32,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             new TestStruct(true, TypeBool::instance()),
             new TestStruct('j)(*U""', TypeString::instance()),
             new TestStruct([123, 45, 657], new TypePackedArray(TypeInt32::instance())),
-            new TestStruct(['ser', 'er3'], new TypePackedArray(TypeString::instance())),
+            new TestStruct(['ser', 'er3', 1234], new TypePackedArray(TypeString::instance())),
             new TestStruct([0 => 'se', 1 => 'er', 2 => 'tr'], new TypePackedArray(TypeString::instance())),
             new TestStruct([123 => 'erw', 45 => 'wer', 657 => 'terd'], new TypePackedMap(TypeInt32::instance(), TypeString::instance())),
             new TestStruct(['ser' => 45, 'er3' => 678], new TypePackedMap(TypeString::instance(), TypeInt32::instance())),
@@ -72,6 +72,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
     public function testWriteString()
     {
         $array = [
+            12355,
             '',
             'jOPI*()#UJf',
             '879',
@@ -83,7 +84,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeString($buf, $v);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, TypeString::instance());
+            $r = TypeString::instance()->read($newBuf);
             $this->assertEquals($v, $r, 'write string');
         }
     }
@@ -101,7 +102,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeInt32($buf, $v);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, TypeInt32::instance());
+            $r = TypeInt32::instance()->read($newBuf);
             $this->assertEquals($v, $r, 'write int32');
         }
     }
@@ -119,7 +120,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeFloat32($buf, $v);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, TypeFloat32::instance());
+            $r = TypeFloat32::instance()->read($newBuf);
             $this->assertEquals(sprintf("%b", $v), sprintf("%b", $r), 'write float32');
         }
     }
@@ -137,7 +138,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeInt64($buf, $v);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, TypeInt64::instance());
+            $r = TypeInt64::instance()->read($newBuf);
             $this->assertEquals($v, $r, 'write int64');
         }
     }
@@ -155,7 +156,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeBytes($buf, $v);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, TypeBytes::instance());
+            $r = TypeBytes::instance()->read($newBuf);
             $this->assertEquals($v, $r, 'write bytes');
         }
     }
@@ -175,7 +176,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeFloat64($buf, $v);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, TypeFloat64::instance());
+            $r = TypeFloat64::instance()->read($newBuf);
             $this->assertEquals(sprintf("%b", $v), sprintf("%b", $r), 'write float64');
         }
     }
@@ -190,7 +191,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeBool($buf, $v);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, TypeBool::instance());
+            $r = TypeBool::instance()->read($newBuf);
             $this->assertEquals($v, $r, 'write bool');
         }
     }
@@ -210,7 +211,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeByte($buf, $v);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, TypeByte::instance());
+            $r = TypeByte::instance()->read($newBuf);
             $this->assertEquals((int)$v, $r, 'write byte');
         }
     }
@@ -228,7 +229,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeInt16($buf, $v);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, TypeInt16::instance());
+            $r = TypeInt16::instance()->read($newBuf);
             $this->assertEquals($v, $r, 'write int16');
         }
     }
@@ -244,7 +245,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeArray($buf, $v->v, $v->t->getElemType());
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, $v->t);
+            $r = $v->t->read($newBuf);
             $this->assertEquals($v->v, $r, 'write array');
         }
     }
@@ -260,7 +261,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
             $buf = new Buffer();
             BreezeWriter::writeMap($buf, $v->v, $v->t->getElemType()[0], $v->t->getElemType()[1]);
             $newBuf = new Buffer($buf->buffer());
-            $r = BreezeReader::readValue($newBuf, $v->t);
+            $r = $v->t->read($newBuf);
             $this->assertEquals($v->v, $r, 'write map');
         }
     }
@@ -278,7 +279,7 @@ class BreezeWriterReaderTest extends PHPUnit\Framework\TestCase
         $newBuf = new Buffer($buf->buffer());
         $tp = $newBuf->readByte();
         $this->assertEquals(Type::T_MESSAGE, $tp, 'message type');
-        $rname = BreezeReader::readValue($newBuf, TypeString::instance());
+        $rname = TypeString::instance()->read($newBuf);
         $this->assertEquals($name, $rname, 'message name');
         BreezeReader::readMessage($newBuf, function (Buffer $fbuf, $index) {
             switch ($index) {

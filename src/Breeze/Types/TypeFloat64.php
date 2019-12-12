@@ -45,10 +45,10 @@ class TypeFloat64 implements Type
 
     public function read(Buffer $buf, $withType = true)
     {
-        $tp = self::T_FLOAT64;
-        if ($withType) {
-            $tp = $buf->readByte();
+        if (!$withType) {
+            return $buf->readFloat64();
         }
+        $tp = $buf->readByte();
         switch ($tp) {
             case self::T_FLOAT64:
                 return $buf->readFloat64();
